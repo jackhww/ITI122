@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets
+.env
+
+# Runtime data
+bank_systems.db
+vector_store/
+audits/
+manual_review_cases/
+
+# Docker
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

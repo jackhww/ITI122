@@ -1,0 +1,13 @@
+services:
+  loan-genai:
+    build: .
+    ports:
+      - "8501:8501"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+    volumes:
+      - ./policies:/app/policies
+      - ./vector_store:/app/vector_store
+      - ./audits:/app/audits
+      - ./manual_review_cases:/app/manual_review_cases
+      - ./bank_systems.db:/app/bank_systems.db

@@ -1,0 +1,11 @@
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+vector_store/
+audits/
+manual_review_cases/
+.git/
+.env
