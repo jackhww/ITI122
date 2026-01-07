@@ -41,7 +41,6 @@ def letter_text_to_pdf_bytes(
 
     story = []
 
-    # Optional title line
     if title:
         story.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
         story.append(Spacer(1, 8))
@@ -49,7 +48,6 @@ def letter_text_to_pdf_bytes(
     # Preserve paragraphs (blank lines => new paragraph)
     paragraphs = [p.strip() for p in letter_text.split("\n\n") if p.strip()]
     for p in paragraphs:
-        # ReportLab Paragraph supports simple HTML; escape special chars
         safe = (
             p.replace("&", "&amp;")
              .replace("<", "&lt;")

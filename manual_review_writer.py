@@ -31,7 +31,6 @@ def write_manual_review_case(
             "rationale": result.get("rationale"),
             "assumptions_or_gaps": result.get("assumptions_or_gaps", []),
         },
-        # Keep evidence concise but useful for humans
         "evidence": [
             {
                 "chunk_id": e.get("chunk_id"),
@@ -41,7 +40,6 @@ def write_manual_review_case(
             }
             for e in evidence
         ],
-        # Keep the model-chosen evidence references too
         "evidence_used": result.get("evidence_used", []),
     }
 

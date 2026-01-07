@@ -1,20 +1,20 @@
 FROM python:3.12-slim
 
-# System deps (some PDF/text libs benefit from these)
+# System deps
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# Install Python dependencies first (better caching)
+# Install Python dependencies first
 COPY requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
 # Copy app code
 COPY . /app
 
-# Create runtime dirs (will be overwritten by volumes if you mount them)
+# Create runtime dirs
 RUN mkdir -p /app/policies /app/vector_store /app/audits /app/manual_review_cases
 
 # Streamlit config to listen on all interfaces

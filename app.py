@@ -155,7 +155,7 @@ if st.button("Assess Risk & Rate"):
 
     evidence = retrieve(rag_query, k=5)
 
-    # # Gemini reasoning
+    ## Gemini reasoning
     result = call_gemini(customer, evidence)
     # If human review is needed, write a separate case file
     manual_case_path = None

@@ -27,7 +27,6 @@ PREFERRED_ORDER = [
 def _extract_json(text: str) -> str:
     text = (text or "").strip()
 
-    # Match ```json ... ``` or ``` ... ```
     fence = re.search(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```", text, flags=re.IGNORECASE)
     if fence:
         return fence.group(1).strip()
@@ -44,11 +43,9 @@ def deterministic_recommendation(customer: dict, overall_risk: str) -> str:
     acct = (customer.get("account_status") or "").lower()
     pr = customer.get("pr_status", None)
 
-    # Hard stop from your assignment narrative (keep policy-grounded by a doc if you want)
     if "non" in nat and "singapore" in nat and pr is False:
         return "do_not_recommend"
 
-    # Conservative handling
     if overall_risk == "high":
         return "needs_manual_review"
 
@@ -56,7 +53,6 @@ def deterministic_recommendation(customer: dict, overall_risk: str) -> str:
     if "delinquent" in acct:
         return "needs_manual_review"
 
-    # ✅ For Loren: Singaporean + medium risk + good-standing => approve
     if overall_risk in ("low", "medium"):
         return "approve"
 
@@ -65,12 +61,10 @@ def deterministic_recommendation(customer: dict, overall_risk: str) -> str:
 
 def pick_model_name() -> str:
     available = {m.name: m for m in genai.list_models()}
-    # Prefer our list
     for name in PREFERRED_ORDER:
         m = available.get(name)
         if m and "generateContent" in getattr(m, "supported_generation_methods", []):
             return name
-    # Fallback: first model that supports generateContent
     for m in available.values():
         if "generateContent" in getattr(m, "supported_generation_methods", []):
             return m.name
@@ -117,7 +111,6 @@ def call_gemini(customer: Dict[str, Any], evidence: List[Dict[str, Any]]) -> Dic
         cleaned = _extract_json(raw)
         result = json.loads(cleaned)
 
-        # Force deterministic recommendation
         result["recommendation"] = deterministic_recommendation(
             customer,
             (result.get("overall_risk") or "unknown").lower()
