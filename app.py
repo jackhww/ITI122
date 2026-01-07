@@ -3,6 +3,8 @@ import streamlit as st
 from pathlib import Path
 import subprocess
 import sys
+import json
+
 
 
 from data_connectors import get_credit_record, get_account_record, get_pr_status
@@ -14,6 +16,8 @@ from applicant_letter_generator import build_applicant_letter
 from decision_note import build_decision_note
 from pdf_utils import letter_text_to_pdf_bytes
 
+POLICY_DIR = Path(__file__).resolve().parent / "policies"
+POLICY_DIR.mkdir(exist_ok=True)
 
 st.set_page_config(page_title="Loan Risk Assessment (GenAI)", layout="wide")
 
@@ -57,22 +61,48 @@ def recommendation_badge(rec: str):
     return mapping.get(rec, rec)
 
 with st.sidebar:
-    st.header("Setup")
-    st.write("1) Ensure DB exists: `python bootstrap_db.py`")
-    st.write("2) Set env var: `GEMINI_API_KEY`")
-    st.write("3) Put policy PDFs or TXT in `./policies/`")
-    if st.button("Rebuild / Load Policy Index"):
-        try:
-            from policy_rag import rebuild_index
-            rebuild_index()
-            st.success("Policy index rebuilt")
-        except Exception as e:
-            st.error(str(e))
-    MANUAL_DIR = Path(__file__).resolve().parent / "manual_review_cases"
+    st.sidebar.markdown("## Policy Management")
 
-    if st.sidebar.button("Open manual review folder (path)"):
-        st.sidebar.write(str(MANUAL_DIR))
+    uploaded_files = st.sidebar.file_uploader(
+        "Upload policy PDFs",
+        type=["pdf"],
+        accept_multiple_files=True
+    )
 
+    if uploaded_files:
+        for f in uploaded_files:
+            save_path = POLICY_DIR / f.name
+            with open(save_path, "wb") as out:
+                out.write(f.getbuffer())
+        st.sidebar.success(f"Uploaded {len(uploaded_files)} file(s) to policies/")
+
+    # List policies
+    policy_files = sorted([p.name for p in POLICY_DIR.glob("*.pdf")])
+
+    if not policy_files:
+        st.sidebar.warning("No policy PDFs found in policies/")
+    else:
+        st.sidebar.caption("Uploaded policies:")
+        for p in policy_files:
+            st.sidebar.write(f"• {p}")
+
+    # Let analyst choose which policies are in-scope
+    selected_policies = st.sidebar.multiselect(
+        "Policies to use for retrieval",
+        options=policy_files,
+        default=policy_files
+    )
+
+    if st.sidebar.button("Rebuild Policy Index"):
+        from policy_rag import rebuild_index
+        rebuild_index()
+        st.sidebar.success("Policy index rebuilt ✅")
+        
+    st.sidebar.markdown("### Manage Policies")
+    to_delete = st.sidebar.selectbox("Select a policy to delete", ["(none)"] + policy_files)
+    if to_delete != "(none)" and st.sidebar.button("Delete selected policy"):
+        (POLICY_DIR / to_delete).unlink(missing_ok=True)
+        st.sidebar.success(f"Deleted: {to_delete}")
 
 BASE_DIR = Path(__file__).resolve().parent
 db_file = BASE_DIR / "bank_systems.db"
@@ -154,6 +184,8 @@ if st.button("Assess Risk & Rate"):
     """
 
     evidence = retrieve(rag_query, k=5)
+    if selected_policies:
+        evidence = [e for e in evidence if e.get("source") in selected_policies]
 
     ## Gemini reasoning
     result = call_gemini(customer, evidence)
@@ -260,3 +292,99 @@ if st.button("Assess Risk & Rate"):
         )
 
 
+## Manual Review section
+def _load_manual_review_cases():
+    cases = []
+    for p in sorted(MANUAL_DIR.glob("manual_review_*.json"), reverse=True):
+        try:
+            data = json.loads(p.read_text(encoding="utf-8"))
+            customer = data.get("customer", {})
+            decision = data.get("decision", {})
+            ts = data.get("timestamp", "")
+
+            cases.append({
+                "file": p.name,
+                "path": str(p),
+                "timestamp": ts,
+                "customer_id": customer.get("id"),
+                "customer_name": customer.get("name"),
+                "overall_risk": decision.get("overall_risk"),
+                "interest_rate": decision.get("interest_rate"),
+                "recommendation": decision.get("recommendation"),
+                "data": data,  # keep full payload for viewing
+            })
+        except Exception:
+            # If file is corrupted, still list it
+            cases.append({
+                "file": p.name,
+                "path": str(p),
+                "timestamp": "",
+                "customer_id": None,
+                "customer_name": None,
+                "overall_risk": None,
+                "interest_rate": None,
+                "recommendation": "needs_manual_review",
+                "data": {"error": "Failed to parse JSON", "path": str(p)},
+            })
+    return cases
+
+st.markdown("## Manual Review Queue (Analyst Intervention Required)")
+MANUAL_DIR = Path(__file__).resolve().parent / "manual_review_cases"
+MANUAL_DIR.mkdir(exist_ok=True)
+cases = _load_manual_review_cases()
+
+if not cases:
+    st.info("No applicants currently in the manual review queue")
+else:
+    st.caption(f"{len(cases)} case(s) pending manual review")
+
+    # Optional filter
+    query = st.text_input("Filter by Customer ID or Name", "")
+    if query.strip():
+        q = query.strip().lower()
+        cases = [
+            c for c in cases
+            if (str(c.get("customer_id") or "").lower().find(q) >= 0)
+            or ((c.get("customer_name") or "").lower().find(q) >= 0)
+        ]
+
+    for c in cases:
+        title = f"{c.get('customer_name','Unknown')} (ID {c.get('customer_id','?')}) — {c.get('overall_risk','?')} risk"
+        with st.expander(title):
+            a, b, d, e = st.columns(4)
+            a.metric("Risk", c.get("overall_risk") or "—")
+            b.metric("Rate", c.get("interest_rate") or "—")
+            d.metric("Recommendation", c.get("recommendation") or "—")
+            e.metric("Timestamp", c.get("timestamp") or "—")
+
+            st.write(f"**Case file:** `{c['file']}`")
+
+            # Show a short human summary if present
+            decision = c["data"].get("decision", {})
+            rationale = decision.get("rationale")
+            if rationale:
+                st.markdown("### Rationale")
+                st.write(rationale)
+
+            # Evidence preview
+            ev = c["data"].get("evidence", [])
+            if ev:
+                st.markdown("### Evidence (preview)")
+                for item in ev[:3]:
+                    st.markdown(f"**{item.get('chunk_id','')}** (score={item.get('score',0):.3f})")
+                    st.write(item.get("text_preview", "")[:800])
+                    st.markdown("---")
+
+            # Full JSON for audit/debug
+            show_json = st.checkbox(f"Show full case JSON ({c['file']})", value=False)
+            if show_json:
+                st.json(c["data"])
+
+
+            # Download the case file
+            st.download_button(
+                label="Download case JSON",
+                data=json.dumps(c["data"], indent=2).encode("utf-8"),
+                file_name=c["file"],
+                mime="application/json"
+            )
