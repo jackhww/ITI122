@@ -1,13 +1,22 @@
 services:
   loan-genai:
     build: .
+    container_name: loan-genai
     ports:
       - "8501:8501"
+    env_file:
+      - .env
     environment:
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - PYTHONUNBUFFERED=1
     volumes:
       - ./policies:/app/policies
       - ./vector_store:/app/vector_store
       - ./audits:/app/audits
       - ./manual_review_cases:/app/manual_review_cases
       - ./bank_systems.db:/app/bank_systems.db
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8501/_stcore/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5

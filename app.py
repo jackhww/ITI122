@@ -174,7 +174,7 @@ if st.button("Assess Risk & Rate"):
             st.write(" PR Status check skipped (Singaporean)")
 
 
-    # RAG query (based on the relevant fields)
+    # RAG query
     rag_query = f"""
     Determine overall risk and interest rate for:
     credit_score={customer['credit_score']},

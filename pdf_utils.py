@@ -45,7 +45,7 @@ def letter_text_to_pdf_bytes(
         story.append(Paragraph(f"<b>{title}</b>", styles["Title"]))
         story.append(Spacer(1, 8))
 
-    # Preserve paragraphs (blank lines => new paragraph)
+    # Preserve paragraphs
     paragraphs = [p.strip() for p in letter_text.split("\n\n") if p.strip()]
     for p in paragraphs:
         safe = (

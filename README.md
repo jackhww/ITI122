@@ -19,6 +19,7 @@ This project is a prototype GenAI-powered loan risk assessment system that:
 
 ## Running locally
 ```bash
+export GEMINI_API_KEY="YOUR_API_TOKEN"
 python bootstrap_db.py
 streamlit run app.py
 ```
@@ -27,6 +28,11 @@ streamlit run app.py
 ```bash 
 docker compose up --build
 ```
+
+## Live Demo:
+`iti122.jackhww.me` 
+- Access to the Demo will be given on request. 
+The URL is publicly available and this is to prevent overspending of Gemini Tokens which are on free tier right now.
 
 ## Notes
 - Policy PDFs go in `policies/`
