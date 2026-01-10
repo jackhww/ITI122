@@ -19,6 +19,9 @@ This project is a prototype GenAI-powered loan risk assessment system that:
 
 ## Running locally
 ```bash
+# Optional: create an environment first before installing requirements.txt
+pip install -r requirements.txt
+
 export GEMINI_API_KEY="YOUR_API_TOKEN"
 python bootstrap_db.py
 streamlit run app.py
